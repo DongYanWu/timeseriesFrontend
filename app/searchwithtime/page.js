@@ -8,9 +8,8 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import TableSortLabel from "@mui/material/TableSortLabel";
 import Select, { SelectChangeEvent } from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import CardTemplate from "@/components/cardTemplate/CardTemplate";
@@ -20,32 +19,62 @@ import { DemoContainer } from "@mui/x-date-pickers/internals/demo";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
-import TextField from "@mui/material/TextField";
-import Autocomplete from "@mui/material/Autocomplete";
 import Input from "@mui/joy/Input";
 import SideBar from "@/components/SideBar/SideBar";
+import OutlinedInput from "@mui/material/OutlinedInput";
+import FormControl from "@mui/material/FormControl";
+import ListItemText from "@mui/material/ListItemText";
+import Checkbox from "@mui/material/Checkbox";
+import InputLabel from "@mui/material/InputLabel";
+import Button from "@mui/material/Button";
+import TableSortLabel from "@mui/material/TableSortLabel";
+import LoadingAnimation from "@/components/LoadingAnimation/LoadingAnimation";
+import { useTheme } from "@mui/material/styles";
+import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 
 const columns = [
-  { id: "id", label: "ID", minWidth: 170 },
-  { id: "company", label: "Company", minWidth: 170, align: "left" },
-  { id: "timestamp", label: "Timestamp", minWidth: 170, align: "left" },
-  {
-    id: "price",
-    label: "Price",
-    minWidth: 170,
-    align: "left",
-    format: (value) => value.toFixed(2),
-  },
+  { id: "companyname", label: "Company Name", minWidth: 170 },
+  { id: "min_dis", label: "Minimum Distance", minWidth: 170, align: "left" },
+  // { id: "start_time", label: "Start Time", minWidth: 170, align: "left" },
+  // { id: "end_time", label: "End Time", minWidth: 170, align: "left" },
 ];
 
 const tables = [
   { label: "company_stock_prices", CompanyName: "company_stock_prices" },
 ];
 
+const methods = [
+  "Pure Euclidean distance",
+  "V-shift",
+  "DTW",
+  "Cross-Correlation",
+];
+
+function getStyles(name, personName, theme) {
+  return {
+    fontWeight:
+      personName.indexOf(name) === -1
+        ? theme.typography.fontWeightRegular
+        : theme.typography.fontWeightMedium,
+  };
+}
+
+const ITEM_HEIGHT = 48;
+const ITEM_PADDING_TOP = 8;
+const MenuProps = {
+  PaperProps: {
+    style: {
+      maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
+      width: 250,
+    },
+  },
+};
+
 export default function StickyHeadTable() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [tableName, setTableName] = useState("company_stock_prices"); // Default table
+  const [targetCompany, setTargetCompany] = useState(""); // Default table
   const [data, setData] = useState([]);
   const [offset, setOffset] = useState(0);
   const [companies, setCompanies] = useState([]);
@@ -55,21 +84,21 @@ export default function StickyHeadTable() {
     dayjs("2000-04-17T15:30")
   );
   const [endTimestamp, setEndTimestamp] = useState(dayjs("2024-05-17T15:30"));
-  const [price, setPrice] = useState("");
   const limit = 500; // Number of rows to fetch per request
   const observer = useRef();
+  const [selectedCompanies, setSelectedCompanies] = useState([]);
+  const theme = useTheme();
+  const [methodChoose, setMethodChoose] = React.useState([]);
+  const [open, setOpen] = React.useState(false);
 
   useEffect(() => {
     fetchCompanies();
-    setData([]);
-    setOffset(0);
-    fetchData(true);
-  }, [tableName, company, startTimestamp, endTimestamp, price]);
+  }, []);
 
   const fetchCompanies = async () => {
     try {
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/companies/${tableName}`
+        `${process.env.NEXT_PUBLIC_API_URL}/companies/company_stock_prices`
       );
       setCompanies(response.data.map((row) => row.company));
     } catch (err) {
@@ -77,35 +106,46 @@ export default function StickyHeadTable() {
     }
   };
 
+  const handleTargetCompanyChange = (e) => {
+    setTargetCompany(e.target.value);
+  };
+
+  const handleCompanyChange = (event) => {
+    const {
+      target: { value },
+    } = event;
+
+    if (value.includes("all")) {
+      setSelectedCompanies(
+        selectedCompanies.length === companies.length ? [] : companies
+      );
+    } else {
+      setSelectedCompanies(
+        typeof value === "string" ? value.split(",") : value
+      );
+    }
+  };
+
   const fetchData = async (initial = false) => {
     setLoading(true);
+    console.log(methodChoose);
     try {
       const formattedStartTimestamp = startTimestamp
-        ? startTimestamp.toISOString()
+        ? dayjs(startTimestamp).toISOString()
         : null;
       const formattedEndTimestamp = endTimestamp
-        ? endTimestamp.toISOString()
+        ? dayjs(endTimestamp).toISOString()
         : null;
 
-      console.log("Request Params:", {
-        limit,
-        offset: initial ? 0 : offset,
-        company: company.trim(), // Ensure no extra spaces
-        startTimestamp: formattedStartTimestamp,
-        endTimestamp: formattedEndTimestamp,
-        price,
-      });
-
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/data/${tableName}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/similariy`,
         {
           params: {
-            limit,
-            offset: initial ? 0 : offset,
-            company: company.trim(), // Ensure no extra spaces
+            targetCompany: targetCompany,
+            company: selectedCompanies.join(","),
             startTimestamp: formattedStartTimestamp,
             endTimestamp: formattedEndTimestamp,
-            price,
+            methodChoose: methodChoose,
           },
         }
       );
@@ -119,27 +159,6 @@ export default function StickyHeadTable() {
       setLoading(false);
     }
   };
-  const lastElementRef = useCallback(
-    (node) => {
-      if (loading) return;
-      if (observer.current) observer.current.disconnect();
-      observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting) {
-          fetchData();
-        }
-      });
-      if (node) observer.current.observe(node);
-    },
-    [loading, fetchData]
-  );
-
-  const handleTableNameChange = (e) => {
-    setTableName(e.target.value);
-  };
-
-  const handleCompanyChange = (e) => {
-    setCompany(e.target.value);
-  };
 
   const handleStartTimestampChange = (newValue) => {
     setStartTimestamp(newValue);
@@ -147,9 +166,6 @@ export default function StickyHeadTable() {
 
   const handleEndTimestampChange = (newValue) => {
     setEndTimestamp(newValue);
-  };
-  const handlePriceChange = (e) => {
-    setPrice(e.target.value);
   };
 
   const handleChangePage = (event, newPage) => {
@@ -161,6 +177,23 @@ export default function StickyHeadTable() {
     setPage(0);
   };
 
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    fetchData(true);
+  };
+
+  const handleMethodChange = (event) => {
+    setMethodChoose(event.target.value);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+  };
+
+  const handleOpen = () => {
+    setOpen(true);
+  };
+
   return (
     <div
       style={{
@@ -169,6 +202,7 @@ export default function StickyHeadTable() {
         overflow: "auto",
       }}
     >
+      {loading && <LoadingAnimation />}
       <Sun />
       <CardTemplate
         backgroundStyle={{
@@ -177,7 +211,6 @@ export default function StickyHeadTable() {
         }}
         style={{
           display: "flex",
-          // background: "linear-gradient(to bottom right, #fff, #acb5c2)",
           background: "#0f0f15",
           boxShadow: "0 0 40px rgba(255, 255, 255, 1)",
           border: "none",
@@ -185,8 +218,16 @@ export default function StickyHeadTable() {
         }}
       >
         <SideBar />
-        <Paper sx={{ width: "100%", overflow: "auto", align: "center" }}>
-          <div
+
+        <Paper
+          sx={{
+            width: "100%",
+            overflow: "auto",
+            align: "center",
+          }}
+        >
+          <form
+            onSubmit={handleSubmit}
             style={{
               display: "flex",
               margin: "30px",
@@ -195,34 +236,85 @@ export default function StickyHeadTable() {
           >
             <Input
               type="text"
-              value={tableName}
-              onChange={handleTableNameChange}
-              placeholder="Enter table name"
+              value={targetCompany}
+              onChange={handleTargetCompanyChange}
+              placeholder="Enter Target Company Name"
               sx={{ height: "55px", marginTop: "8px" }}
             />
 
-            <Select
-              label="Company"
-              labelId="demo-simple-select-standard-label"
-              id="demo-simple-select-standard"
-              value={company}
-              onChange={handleCompanyChange}
+            <FormControl
               sx={{
-                width: 300,
-                height: "55px",
+                m: 1,
+                width: 150,
                 marginLeft: "20px",
                 marginTop: "8px",
+                display: "flex",
               }}
             >
-              <MenuItem value="">
-                <em>ALL</em>
-              </MenuItem>
-              {companies.map((comp) => (
-                <MenuItem key={comp} value={comp}>
-                  {comp}
+              <InputLabel id="demo-multiple-checkbox-label">Company</InputLabel>
+              <Select
+                labelId="demo-multiple-checkbox-label"
+                id="demo-multiple-checkbox"
+                multiple
+                value={selectedCompanies}
+                onChange={handleCompanyChange}
+                input={<OutlinedInput label="Company" />}
+                renderValue={(selected) => selected.join(", ")}
+                MenuProps={MenuProps}
+              >
+                <MenuItem
+                  value="all"
+                  style={{
+                    fontWeight:
+                      selectedCompanies.length === companies.length
+                        ? "bold"
+                        : "normal",
+                  }}
+                >
+                  <Checkbox
+                    checked={selectedCompanies.length === companies.length}
+                    indeterminate={
+                      selectedCompanies.length > 0 &&
+                      selectedCompanies.length < companies.length
+                    }
+                  />
+                  <ListItemText primary="Select All" />
                 </MenuItem>
-              ))}
-            </Select>
+                {companies.map((comp) => (
+                  <MenuItem key={comp} value={comp}>
+                    <Checkbox checked={selectedCompanies.indexOf(comp) > -1} />
+                    <ListItemText primary={comp} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {/* <Button sx={{ display: "block", mt: 2 }} onClick={handleOpen}>
+              Open the select
+            </Button> */}
+            <FormControl sx={{ m: 1, minWidth: 120 }}>
+              <InputLabel id="demo-controlled-open-select-label">
+                Method
+              </InputLabel>
+              <Select
+                labelId="demo-controlled-open-select-label"
+                id="demo-controlled-open-select"
+                open={open}
+                onClose={handleClose}
+                onOpen={handleOpen}
+                value={methodChoose}
+                label="methodChoose"
+                onChange={handleMethodChange}
+              >
+                <MenuItem value="null">
+                  <em>None</em>
+                </MenuItem>
+                <MenuItem value={0}>Pure Euclidean distance</MenuItem>
+                <MenuItem value={1}>V-shift</MenuItem>
+                <MenuItem value={2}>DTW</MenuItem>
+                <MenuItem value={3}>Cross-Correlation</MenuItem>
+              </Select>
+            </FormControl>
+
             <LocalizationProvider
               dateAdapter={AdapterDayjs}
               sx={{ display: "flex", margin: "0px" }}
@@ -238,30 +330,29 @@ export default function StickyHeadTable() {
                   }}
                 >
                   <DateTimePicker
-                    label="start date"
-                    // defaultValue={dayjs("2022-04-17T15:30")}
+                    label="Start date"
                     value={startTimestamp}
                     onChange={handleStartTimestampChange}
-                    sx={{ width: 300 }}
+                    sx={{ width: 200 }}
                   />
                   <DateTimePicker
                     label="End date"
                     value={endTimestamp}
                     onChange={handleEndTimestampChange}
-                    sx={{ width: 300, marginLeft: "20px" }}
+                    sx={{ width: 200, marginLeft: "20px" }}
                   />
                 </div>
               </DemoContainer>
             </LocalizationProvider>
-
-            <Input
-              type="number"
-              value={price}
-              onChange={handlePriceChange}
-              placeholder="Filter by price"
-              sx={{ height: "55px", marginTop: "8px", marginLeft: "20px" }}
-            />
-          </div>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              sx={{ height: "55px", marginLeft: "20px", marginTop: "8px" }}
+            >
+              Submit
+            </Button>
+          </form>
           <TableContainer>
             <Table
               stickyHeader
@@ -291,20 +382,14 @@ export default function StickyHeadTable() {
                         role="checkbox"
                         tabIndex={-1}
                         key={row.id}
-                        ref={index === data.length - 1 ? lastElementRef : null}
                       >
                         {columns.map((column) => {
                           const value = row[column.id];
                           return (
-                            <TableCell
-                              key={column.id}
-                              align={column.align}
-                              ref={lastElementRef}
-                            >
+                            <TableCell key={column.id} align={column.align}>
                               {column.format && typeof value === "number"
                                 ? column.format(value)
                                 : value}
-                              <TableSortLabel></TableSortLabel>
                             </TableCell>
                           );
                         })}
