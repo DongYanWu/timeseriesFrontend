@@ -13,8 +13,8 @@ import axios from "axios";
 import TableSortLabel from "@mui/material/TableSortLabel";
 import Select, { SelectChangeEvent } from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
-import CardTemplate from "@/components/cardTemplate/CardTemplate";
-import Sun from "@/components/sun/Sun";
+import CardTemplate from "../../components/cardTemplate/CardTemplate";
+import Sun from "../../components/sun/Sun";
 import dayjs from "dayjs";
 import { DemoContainer } from "@mui/x-date-pickers/internals/demo";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -23,7 +23,7 @@ import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 import Input from "@mui/joy/Input";
-import SideBar from "@/components/SideBar/SideBar";
+import SideBar from "../../components/SideBar/SideBar";
 
 const columns = [
   { id: "id", label: "ID", minWidth: 170 },
