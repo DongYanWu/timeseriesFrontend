@@ -138,7 +138,7 @@ export default function StickyHeadTable() {
         : null;
 
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/similariy`,
+        `${process.env.NEXT_PUBLIC_API_URL}/similarity`,
         {
           params: {
             targetCompany: targetCompany,
